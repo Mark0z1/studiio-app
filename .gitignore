@@ -1,0 +1,20 @@
+cat <<EOF > .gitignore
+# Carpetas pesadas de librerías
+node_modules/
+
+# Archivos de construcción (resultado de compilar)
+dist/
+build/
+.output/
+
+# Archivos temporales y de sistema
+.DS_Store
+Thumbs.db
+.env
+.env.local
+
+# Archivos de Capacitor y Android que se generan solos
+android/build/
+android/app/build/
+android/app/src/main/assets/public/
+EOF
