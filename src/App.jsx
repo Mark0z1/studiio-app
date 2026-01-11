@@ -3,7 +3,6 @@ import JSZip from 'jszip';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
-// Iconos
 const IconUpload = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>;
 const IconZip = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><rect x="8" y="2" width="8" height="8" rx="1"/></svg>;
 const IconTrash = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
@@ -19,7 +18,6 @@ const App = () => {
   const DIM_HORIZ = { w: 388, h: 276 };
   const TARGET_SIZE_BYTES = 188.5 * 1024;
 
-  // Lógica técnica de PNG intacta
   const crcTable = useMemo(() => {
     const table = new Uint32Array(256);
     for (let i = 0; i < 256; i++) {
@@ -99,52 +97,39 @@ const App = () => {
     }, 'image/png');
   };
 
-  // NUEVA LÓGICA DE DESCARGA PARA ANDROID
   const downloadZipMobile = async () => {
-    const zip = new JSZip();
     const toDownload = selectedIds.length > 0 ? files.filter(f => selectedIds.includes(f.id)) : files;
-    
-    if (toDownload.length === 0) return alert("No hay imágenes para descargar");
+    if (toDownload.length === 0) return alert("Selecciona imágenes para descargar");
 
+    const zip = new JSZip();
     toDownload.forEach(f => zip.file(f.name, f.blob));
-    const content = await zip.generateAsync({ type: "base64" });
-    const fileName = "studiio_photos.zip";
+    const base64 = await zip.generateAsync({ type: "base64" });
 
     try {
-      // 1. Guardar temporalmente en el sistema de archivos de la App
-      const savedFile = await Filesystem.writeFile({
+      const fileName = `studiio_${Date.now()}.zip`;
+      const saved = await Filesystem.writeFile({
         path: fileName,
-        data: content,
+        data: base64,
         directory: Directory.Cache
       });
-
-      // 2. Abrir el menú de compartir de Android (Permite guardar en descargas)
-      await Share.share({
-        title: 'Descargar Fotos',
-        url: savedFile.uri,
-      });
+      await Share.share({ title: 'Guardar Fotos', url: saved.uri });
     } catch (e) {
-      alert("Error al descargar: " + e.message);
+      alert("Error: " + e.message);
     }
   };
 
   return (
-    <div className="h-screen bg-[#0a0a0c] text-white flex flex-col overflow-hidden font-sans">
-      {/* ESPACIADO PARA LA BARRA DE NOTIFICACIONES (pt-12) */}
-      <div className="flex-grow overflow-y-auto px-4 pt-12 pb-20">
-        <header className="flex justify-between items-center mb-6 bg-[#111] p-5 rounded-3xl border border-slate-800 shadow-2xl">
-          <h1 className="text-xl font-black italic uppercase tracking-tighter text-white">Studiio</h1>
+    <div className="flex flex-col h-screen bg-[#0a0a0c] text-white">
+      {/* ESPACIADO SUPERIOR PARA BARRA DE ESTADO (pt-16) */}
+      <div className="flex-grow overflow-y-auto px-4 pt-16 pb-24">
+        <header className="flex justify-between items-center mb-6 bg-[#111] p-4 rounded-3xl border border-slate-800 shadow-xl">
+          <h1 className="text-xl font-black italic uppercase tracking-tighter">Studiio</h1>
           <div className="flex gap-2">
             {selectedIds.length > 0 && (
-              <button onClick={() => setFiles(prev => prev.filter(f => !selectedIds.includes(f.id)))} className="bg-red-600/20 text-red-500 p-2 rounded-xl border border-red-600/50">
-                <IconTrash />
-              </button>
+              <button onClick={() => setFiles(f => f.filter(i => !selectedIds.includes(i.id)))} className="bg-red-600/20 text-red-500 p-2 rounded-xl border border-red-600/50"><IconTrash /></button>
             )}
-            <button 
-              onClick={downloadZipMobile} 
-              className="bg-emerald-600 px-6 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg shadow-emerald-900/20 min-w-[120px] justify-center"
-            >
-              <IconZip /> Descargar
+            <button onClick={downloadZipMobile} className="bg-emerald-600 px-5 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2">
+              <IconZip /> {selectedIds.length > 0 ? 'Descargar Sel.' : 'Descargar'}
             </button>
           </div>
         </header>
@@ -163,17 +148,17 @@ const App = () => {
             }} />
           </div>
         ) : (
-          <div className="bg-[#111] p-6 rounded-[2.5rem] border border-slate-800">
-             <div className="relative h-64 bg-black rounded-2xl overflow-hidden mb-6 flex items-center justify-center border border-slate-800">
+          <div className="bg-[#111] p-5 rounded-[2.5rem] border border-slate-800">
+             <div className="relative h-64 bg-black rounded-2xl overflow-hidden mb-5 flex items-center justify-center border border-slate-800 shadow-inner">
                 <img ref={imgRef} src={currentImage.src} className="absolute" style={{ transform: `translate(${config.offsetX}%, ${config.offsetY}%) scale(${config.zoom})`, width: '100%', objectFit: 'contain' }} />
              </div>
              <div className="space-y-4">
                <input type="range" min="0.1" max="1.5" step="0.01" value={config.zoom} onChange={e => setConfig({...config, zoom: parseFloat(e.target.value)})} className="w-full accent-emerald-500" />
                <div className="grid grid-cols-2 gap-3">
-                 <button onClick={() => setConfig({...config, mode: 'H'})} className={`py-3 rounded-xl text-[10px] font-bold border ${config.mode === 'H' ? 'bg-white text-black border-white' : 'border-slate-800 text-slate-500'}`}>HORIZ (Fijo)</button>
-                 <button onClick={() => setConfig({...config, mode: 'V'})} className={`py-3 rounded-xl text-[10px] font-bold border ${config.mode === 'V' ? 'bg-white text-black border-white' : 'border-slate-800 text-slate-500'}`}>VERT (Original)</button>
+                 <button onClick={() => setConfig({...config, mode: 'H'})} className={`py-3 rounded-xl text-[10px] font-bold border ${config.mode === 'H' ? 'bg-white text-black' : 'border-slate-800 text-slate-500'}`}>HORIZ (388x276)</button>
+                 <button onClick={() => setConfig({...config, mode: 'V'})} className={`py-3 rounded-xl text-[10px] font-bold border ${config.mode === 'V' ? 'bg-white text-black' : 'border-slate-800 text-slate-500'}`}>VERT (96 DPI)</button>
                </div>
-               <button onClick={processImage} className="w-full bg-emerald-600 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl">Procesar Imagen</button>
+               <button onClick={processImage} className="w-full bg-emerald-600 py-4 rounded-2xl font-black uppercase text-xs shadow-xl">Procesar Imagen</button>
                <button onClick={() => setCurrentImage(null)} className="w-full text-slate-600 text-[10px] font-bold uppercase py-2 text-center">Cancelar</button>
              </div>
           </div>
@@ -184,8 +169,8 @@ const App = () => {
             <div key={f.id} onClick={() => setSelectedIds(prev => prev.includes(f.id) ? prev.filter(i => i !== f.id) : [...prev, f.id])} className={`relative p-2 rounded-2xl border transition-all ${selectedIds.includes(f.id) ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 bg-black'}`}>
               <img src={f.preview} className="w-full h-32 object-contain rounded-lg" />
               <div className="mt-2 text-center">
-                <p className="text-[8px] truncate uppercase font-bold text-slate-400">{f.name}</p>
-                <p className="text-[7px] font-mono text-emerald-500 mt-1">{f.info} • {f.weight}</p>
+                <p className="text-[7px] truncate font-bold text-slate-400 uppercase">{f.name}</p>
+                <p className="text-[6px] font-mono text-emerald-500 mt-1">{f.info} • {f.weight}</p>
               </div>
               {selectedIds.includes(f.id) && (
                 <div className="absolute top-2 right-2 bg-emerald-500 rounded-full p-1 shadow-lg border-2 border-black">
@@ -197,9 +182,9 @@ const App = () => {
         </div>
       </div>
 
-      {/* PIE DE PÁGINA FIJO CON MARGEN INFERIOR */}
-      <footer className="bg-[#0a0a0c]/80 backdrop-blur-md border-t border-slate-900 py-4 text-center">
-        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-600">
+      {/* FOOTER FIJO PARA EVITAR EL CORTE INFERIOR */}
+      <footer className="fixed bottom-0 w-full bg-[#0a0a0c]/90 backdrop-blur-md py-6 border-t border-slate-900 text-center z-50">
+        <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-slate-600">
           Creado por 🇲🇽 para todo el 🌎
         </p>
       </footer>

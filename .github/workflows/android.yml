@@ -28,7 +28,7 @@ jobs:
       - name: Generate Icons
         run: |
           npm install @capacitor/assets
-          npx @capacitor/assets generate --android --iconOnly assets/icon-only.png
+          npx @capacitor/assets generate --android
       - name: Sync Capacitor
         run: npx cap sync android
       - name: Build APK
