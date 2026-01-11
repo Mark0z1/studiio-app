@@ -3,7 +3,6 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Toast } from '@capacitor/toast';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
-// --- Iconos de la interfaz ---
 const IconUpload = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>;
 const IconSave = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
 const IconTrash = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
@@ -105,22 +104,27 @@ const App = () => {
     }, 'image/png');
   };
 
-  // --- FUNCIÓN DE GUARDADO REVERTIDA A DOCUMENTS ---
+  // --- FUNCIÓN DE GUARDADO CON PEDIDO DE PERMISO ---
   const saveToPhotosFolder = async () => {
     const toSave = selectedIds.length > 0 ? files.filter(f => selectedIds.includes(f.id)) : files;
     if (toSave.length === 0) return alert("Selecciona imágenes primero");
     
     try {
+      // 1. PEDIR PERMISOS EN TIEMPO REAL (Esto arregla el EACCES)
+      const perm = await Filesystem.checkPermissions();
+      if (perm.publicStorage !== 'granted') {
+        await Filesystem.requestPermissions();
+      }
+
       const folderName = 'Photos_Studiio';
       
-      // Intentamos crear la carpeta en Documentos
       try {
         await Filesystem.mkdir({
           path: folderName,
           directory: Directory.Documents,
           recursive: true
         });
-      } catch (e) { /* Carpeta ya existe */ }
+      } catch (e) { /* Ya existe */ }
 
       for (const file of toSave) {
         const reader = new FileReader();
@@ -148,16 +152,11 @@ const App = () => {
 
   return (
     <div className={`flex flex-col h-screen transition-colors duration-500 ${isDark ? 'bg-[#0a0a0c] text-white' : 'bg-[#f4f4f5] text-black'}`}>
-      
-      {/* Menú Lateral (Hamburguesa) */}
       {isMenuOpen && (
         <div className="fixed inset-0 z-[100] flex animate-in fade-in duration-300">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)}></div>
           <div className={`relative w-72 h-full shadow-2xl p-6 flex flex-col transition-transform duration-300 ${isDark ? 'bg-[#111] text-white' : 'bg-white text-black'}`}>
-            <div className="flex justify-between items-center mb-10">
-              <span className="font-black italic uppercase tracking-widest text-sm">Configuración</span>
-              <button onClick={() => setIsMenuOpen(false)} className="p-2 opacity-60"><IconClose /></button>
-            </div>
+            <div className="flex justify-between items-center mb-10"><span className="font-black italic uppercase tracking-widest text-sm">Configuración</span><button onClick={() => setIsMenuOpen(false)} className="p-2 opacity-60"><IconClose /></button></div>
             <div className="space-y-4">
               <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className={`w-full flex justify-between items-center p-4 rounded-2xl border transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-100'}`}>
                 <span className="text-[10px] font-black uppercase tracking-tighter">Modo {isDark ? 'Claro' : 'Oscuro'}</span>
@@ -167,37 +166,19 @@ const App = () => {
           </div>
         </div>
       )}
-
-      {/* Área Principal Scrolleable */}
       <div className="flex-grow overflow-y-auto px-4 pt-[env(safe-area-inset-top,60px)] pb-32">
         <header className={`flex justify-between items-center mb-8 p-4 rounded-3xl border shadow-2xl transition-all ${isDark ? 'bg-[#111]/80 border-slate-800' : 'bg-white/80 border-gray-200'} backdrop-blur-xl`}>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsMenuOpen(true)} className="p-1 opacity-70"><IconMenu /></button>
-            <h1 className="text-xl font-black italic uppercase tracking-tighter text-emerald-500">Studiio</h1>
-          </div>
+          <div className="flex items-center gap-4"><button onClick={() => setIsMenuOpen(true)} className="p-1 opacity-70"><IconMenu /></button><h1 className="text-xl font-black italic uppercase tracking-tighter text-emerald-500">Studiio</h1></div>
           <div className="flex gap-2">
-            {selectedIds.length > 0 && (
-              <button onClick={() => setFiles(f => f.filter(i => !selectedIds.includes(i.id)))} className="bg-red-600/20 text-red-500 p-2 rounded-xl border border-red-600/50"><IconTrash /></button>
-            )}
-            <button onClick={saveToPhotosFolder} className="bg-emerald-600 px-5 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 text-white shadow-lg shadow-emerald-500/30">
-              <IconSave /> Guardar
-            </button>
+            {selectedIds.length > 0 && <button onClick={() => setFiles(f => f.filter(i => !selectedIds.includes(i.id)))} className="bg-red-600/20 text-red-500 p-2 rounded-xl border border-red-600/50"><IconTrash /></button>}
+            <button onClick={saveToPhotosFolder} className="bg-emerald-600 px-5 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 text-white shadow-lg shadow-emerald-500/30"><IconSave /> Guardar</button>
           </div>
         </header>
-
-        {/* Zona de Carga / Edición */}
         {!currentImage ? (
           <div className={`border-2 border-dashed rounded-[3rem] p-16 text-center transition-all ${isDark ? 'border-slate-800 bg-white/5' : 'border-gray-300 bg-black/5'}`} onClick={() => document.getElementById('f').click()}>
             <div className="flex justify-center text-emerald-500 mb-4 scale-125"><IconUpload /></div>
             <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>Cargar Imagen</p>
-            <input id="f" type="file" className="hidden" accept="image/*" onChange={(e) => {
-              const file = e.target.files[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onload = (ev) => setCurrentImage({ src: ev.target.result, name: file.name.split('.')[0] });
-                reader.readAsDataURL(file);
-              }
-            }} />
+            <input id="f" type="file" className="hidden" accept="image/*" onChange={(e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (ev) => setCurrentImage({ src: ev.target.result, name: file.name.split('.')[0] }); reader.readAsDataURL(file); } }} />
           </div>
         ) : (
           <div className={`p-6 rounded-[3rem] border animate-in fade-in zoom-in duration-300 ${isDark ? 'bg-[#111] border-slate-800' : 'bg-white border-gray-200'}`}>
@@ -215,33 +196,19 @@ const App = () => {
              </div>
           </div>
         )}
-
-        {/* Galería de Resultados */}
         <div className="grid grid-cols-2 gap-5 mt-10">
           {files.map(f => (
             <div key={f.id} onClick={() => setSelectedIds(prev => prev.includes(f.id) ? prev.filter(i => i !== f.id) : [...prev, f.id])} className={`relative p-3 rounded-[2rem] border transition-all duration-300 ${selectedIds.includes(f.id) ? 'border-emerald-500 bg-emerald-500/10 scale-95' : (isDark ? 'border-slate-800 bg-black/40' : 'border-gray-200 bg-white shadow-sm')}`}>
               <img src={f.preview} className="w-full h-36 object-contain rounded-2xl" />
-              <div className="mt-3 text-center">
-                <p className="text-[8px] truncate font-black uppercase opacity-60">{f.name}</p>
-                <p className="text-[7px] font-mono text-emerald-500 mt-1 font-bold">{f.info} • {f.weight}</p>
-              </div>
-              {selectedIds.includes(f.id) && (
-                <div className="absolute top-3 right-3 bg-emerald-500 rounded-full p-1.5 shadow-lg border-2 border-black">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-              )}
+              <div className="mt-3 text-center"><p className="text-[8px] truncate font-black uppercase opacity-60">{f.name}</p><p className="text-[7px] font-mono text-emerald-500 mt-1 font-bold">{f.info} • {f.weight}</p></div>
+              {selectedIds.includes(f.id) && <div className="absolute top-3 right-3 bg-emerald-500 rounded-full p-1.5 shadow-lg border-2 border-black"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg></div>}
             </div>
           ))}
         </div>
       </div>
-
-      {/* Pie de página adaptativo */}
       <footer className={`mt-auto w-full backdrop-blur-2xl py-8 border-t text-center z-[80] pb-[env(safe-area-inset-bottom,20px)] transition-all ${isDark ? 'bg-[#0a0a0c]/80 border-slate-900' : 'bg-[#f4f4f5]/80 border-gray-200'}`}>
-        <p className={`text-[8px] font-black uppercase tracking-[0.4em] ${isDark ? 'text-slate-700' : 'text-gray-400'}`}>
-          Creado por 🇲🇽 para todo el 🌎
-        </p>
+        <p className={`text-[8px] font-black uppercase tracking-[0.4em] ${isDark ? 'text-slate-700' : 'text-gray-400'}`}>Creado por 🇲🇽 para todo el 🌎</p>
       </footer>
-
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );
