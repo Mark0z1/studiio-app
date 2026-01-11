@@ -1,4 +1,3 @@
-cat <<'EOF' > .github/workflows/android.yml
 name: Build Android APK
 on:
   push:
@@ -43,4 +42,3 @@ jobs:
         with:
           name: studiio-app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
-EOF
