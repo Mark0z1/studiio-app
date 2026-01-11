@@ -1,0 +1,57 @@
+cat <<EOF > .github/workflows/android.yml
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'yarn'
+
+      - name: Install Dependencies
+        run: yarn install
+
+      - name: Generate Web Assets
+        run: yarn build
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Capacitor Android
+        run: npx cap add android || true
+
+      - name: Generate Icons (Studiio)
+        run: |
+          npm install @capacitor/assets
+          npx @capacitor/assets generate --android
+        continue-on-error: true
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: studiio-app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+EOF
